@@ -1,0 +1,34 @@
+{
+  "name": "yaipt.js",
+  "version": "1.0.0",
+  "description": "An image processing library based on JavaScript in modern browsers.",
+  "main": "index.js",
+  "scripts": {
+    "build": "webpack-dev-server --progress"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/daix6/yaipt.js.git"
+  },
+  "keywords": [
+    "image",
+    "processing"
+  ],
+  "author": "Shawn Dai <daixuan1996@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/daix6/yaipt.js/issues"
+  },
+  "homepage": "https://github.com/daix6/yaipt.js#readme",
+  "devDependencies": {
+    "html-webpack-plugin": "^2.28.0",
+    "ts-loader": "^2.0.3",
+    "typescript": "^2.2.2",
+    "typings": "^2.1.1",
+    "webpack": "^2.4.1",
+    "webpack-dev-server": "^2.4.2"
+  },
+  "dependencies": {
+    "es6-promise": "^4.1.0"
+  }
+}

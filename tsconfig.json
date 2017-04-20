@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "es5",
+    "module": "es2015",
+    "moduleResolution": "node",
+    "types": [
+      "es6-promise"
+    ],
+    "typeRoots": [
+      "typings"
+    ]
+  }
+}
