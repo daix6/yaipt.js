@@ -1,3 +1,4 @@
+import { Promise } from 'es6-promise';
 import PixelArray from './PixelArray';
 
 export default class Yaipt {
@@ -6,6 +7,9 @@ export default class Yaipt {
   public colorSpace: string;
   // public originImageData: ImageData;
   public pixels: PixelArray;
+
+  public static __canvas: HTMLCanvasElement;
+  public static __canvasContext: CanvasRenderingContext2D;
 
   /**
    * Yaipt 的构造函数
@@ -101,5 +105,48 @@ export default class Yaipt {
       let intensity = pixel[0] * .2126 + pixel[1] * .7152 + pixel[2] * .0722;
       return [intensity, intensity, intensity, pixel[3]];
     }, !!onSelf);
+  }
+
+  static setImage(image: HTMLImageElement);
+  static setImage(link: string);
+  static setImage(src: any) {
+    return new Promise<Yaipt>(function (resolve, reject) {
+      if (typeof src === 'string') {
+        let image = new Image();
+        image.crossOrigin = 'Anonymous';
+
+        image.addEventListener('load', () => {
+          Yaipt.__canvas = document.createElement('canvas');
+          Yaipt.__canvasContext = Yaipt.__canvas.getContext('2d');
+          Yaipt.__canvas.width = image.width;
+          Yaipt.__canvas.height = image.height;
+
+          Yaipt.__canvasContext.drawImage(image, 0, 0, image.width, image.height);
+
+          try {
+            resolve(new Yaipt(Yaipt.__canvasContext.getImageData(0, 0, image.width, image.height)));
+          } catch (e) {
+            reject(e);
+            console.error('Yaipt.setImage：错误的图片地址', e);
+          }
+        }, false);
+
+        image.src = src;
+      } else if (typeof src === 'object' && src instanceof HTMLImageElement) {
+        Yaipt.__canvas = document.createElement('canvas');
+        Yaipt.__canvasContext = Yaipt.__canvas.getContext('2d');
+        Yaipt.__canvas.width = src.width;
+        Yaipt.__canvas.height = src.height;
+
+        Yaipt.__canvasContext.drawImage(src, 0, 0, src.width, src.height)
+        ;
+
+        setTimeout(function () {
+          resolve(new Yaipt(Yaipt.__canvasContext.getImageData(0, 0, src.width, src.height)));
+        });
+      } else {
+        reject('Yaipt.setImage：错误的参数格式');
+      }
+    });
   }
 };

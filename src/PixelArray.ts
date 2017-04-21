@@ -19,7 +19,7 @@ class PixelArray {
       this.pixelArray = new Uint8ClampedArray(x * y * 4);
       this.width = x;
       this.height = y;
-    } else if (x && Object.prototype.toString.call(x) === '[object Uint8ClampedArray]' && isNumber(y)) {
+    } else if (x && Object.prototype.toString.call(x) === '[object ImageData]' && isNumber(y)) {
       this.pixelArray = x.data;
       this.width = y;
       this.height = isNumber(z) ? z : this.pixelArray.length / (4 * y);
