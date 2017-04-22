@@ -55,8 +55,8 @@ class PixelArray {
 
     this.pixelArray[start] = pixel[0];
     this.pixelArray[start + 1] = pixel[1];
-    this.pixelArray[start + 2] = pixel[0];
-    this.pixelArray[start + 3] = pixel[0];
+    this.pixelArray[start + 2] = pixel[2];
+    this.pixelArray[start + 3] = pixel[3];
   }
 
   /**

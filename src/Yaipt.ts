@@ -38,8 +38,8 @@ export default class Yaipt {
     let copy = this.pixels;
     if (!onSelf) copy = new PixelArray(this.width, this.height);
 
-    for (let row = 0; row < this.width; row++) {
-      for (let col = 0; col < this.height; col++) {
+    for (let row = 0; row < this.height; row++) {
+      for (let col = 0; col < this.width; col++) {
         this.pixels.setPixel(row, col, processor(this.pixels.getPixel(row, col), row, col));
       }
     }
@@ -50,9 +50,9 @@ export default class Yaipt {
   /**
    * 在 RGB 色彩空间下获取红色通道图像
    *
-   * @param {boolean} onSelf 是否对当前实例操作
+   * @param {boolean} onSelf 是否对当前实例操作，false 则返回一个新的实例
    */
-  beRed(onSelf?: boolean): Yaipt {
+  beRed(onSelf: boolean = true): Yaipt {
     if (this.colorSpace != 'RGB') {
       throw Error('Yaipt.prototype.beRed - 不支持的色彩空间');
     }
@@ -65,9 +65,9 @@ export default class Yaipt {
   /**
    * 在 RGB 色彩空间下获取绿色通道图像
    *
-   * @param {boolean} onSelf 是否对当前实例操作
+   * @param {boolean} onSelf 是否对当前实例操作，false 则返回一个新的实例
    */
-  beGreen(onSelf?: boolean): Yaipt {
+  beGreen(onSelf: boolean = true): Yaipt {
     if (this.colorSpace != 'RGB') {
       throw Error('Yaipt.prototype.beGreen - 不支持的色彩空间');
     }
@@ -80,9 +80,9 @@ export default class Yaipt {
   /**
    * 在 RGB 色彩空间下获取蓝色通道图像
    *
-   * @param {boolean} onSelf 是否对当前实例操作
+   * @param {boolean} onSelf 是否对当前实例操作，false 则返回一个新的实例
    */
-  beBlue(onSelf?: boolean): Yaipt {
+  beBlue(onSelf: boolean = true): Yaipt {
     if (this.colorSpace != 'RGB') {
       throw Error('Yaipt.prototype.beBlue - 不支持的色彩空间');
     }
@@ -95,9 +95,9 @@ export default class Yaipt {
   /**
    * 在 RGB 色彩空间下获取灰度图像
    *
-   * @param {boolean} onSelf 是否对当前实例操作
+   * @param {boolean} onSelf 是否对当前实例操作，false 则返回一个新的实例
    */
-  beGray(onSelf?: boolean): Yaipt {
+  beGray(onSelf: boolean = true): Yaipt {
     if (this.colorSpace != 'RGB') {
       throw Error('Yaipt.prototype.beGray - 不支持的色彩空间');
     }
@@ -108,7 +108,26 @@ export default class Yaipt {
     }, !!onSelf);
   }
 
+  /**
+   * Yaipt 实例方法，显示图片至 img 或 canvas 元素上
+   *
+   * @param {HTMLImageElement} image 显示 Yaipt 实例的 img 元素
+   * @param {number} offsetRow Yaipt 实例的显示起点（y 轴）
+   * @param {number} offsetCol Yaipt 实例的显示起点（x 轴）
+   * @param {number} width 自 offsetCol 起显示 Yaipt 实例的宽度
+   * @param {number} height 自 offsetRow 起显示 Yaipt 实例的高度
+   */
   show(image: HTMLImageElement, offsetRow?: number, offsetCol?: number, width?: number, height?: number);
+  /**
+   *
+   * @param {HTMLImageElement} canvas 显示 Yaipt 实例的 canvas 元素
+   * @param {number} offsetRow Yaipt 实例的显示起点（y 轴）
+   * @param {number} offsetCol Yaipt 实例的显示起点（x 轴）
+   * @param {number} width 自 offsetCol 起显示 Yaipt 实例的宽度
+   * @param {number} height 自 offsetRow 起显示 Yaipt 实例的高度
+   * @param {number} toRow 显示在 canvas 元素的位置
+   * @param {number} toCol 显示在 canvas 元素的位置
+   */
   show(canvas: HTMLCanvasElement, offsetRow?: number, offsetCol?: number, width?: number, height?: number, toRow?: number, toCol?: number);
   show(to: any, offsetRow?: number, offsetCol?: number, width?: number, height?: number, toRow?: number, toCol?: number): void {
     offsetRow = offsetRow || 0;
@@ -124,7 +143,7 @@ export default class Yaipt {
         Yaipt.__canvas.height = height || this.height;
 
         Yaipt.__canvasContext.putImageData(
-          this.pixels.generatImageData(offsetRow, offsetCol, width, height), 0, 0, width, height
+          this.pixels.generatImageData(offsetRow, offsetCol, width, height), 0, 0
         );
 
         to.src = Yaipt.__canvas.toDataURL();
@@ -134,7 +153,6 @@ export default class Yaipt {
         context.putImageData(
           this.pixels.generatImageData(offsetRow, offsetCol, width, height), 0, 0, toCol, toRow, width, height
         );
-        debugger;
       } else {
         throw new Error('Yaipt.prototype.show 错误的参数类型');
       }
