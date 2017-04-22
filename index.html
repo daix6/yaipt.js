@@ -11,5 +11,19 @@
   <br>
   <img id="img">
   <script src="yaipt.js"></script>
+  <script>
+    var canvas = document.getElementById('canvas');
+    var image = document.getElementById('img');
+    Yaipt.setImage('assets/43.png')
+      .then(function (sample) {
+        canvas.width = sample.width;
+        canvas.height = sample.height;
+        sample.show(canvas);
+        console.log(sample);
+      })
+      .catch(function (error) {
+        console.error('发生了错误', error);
+      });
+  </script>
 </body>
 </html>
