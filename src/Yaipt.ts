@@ -1,4 +1,5 @@
 import { Promise } from 'es6-promise';
+import { isObject } from './Utils'
 import PixelArray from './PixelArray';
 
 export default class Yaipt {
@@ -8,8 +9,8 @@ export default class Yaipt {
   // public originImageData: ImageData;
   public pixels: PixelArray;
 
-  public static __canvas: HTMLCanvasElement;
-  public static __canvasContext: CanvasRenderingContext2D;
+  public static __canvas = document.createElement('canvas');
+  public static __canvasContext = Yaipt.__canvas.getContext('2d');
 
   /**
    * Yaipt 的构造函数
@@ -107,6 +108,41 @@ export default class Yaipt {
     }, !!onSelf);
   }
 
+  show(image: HTMLImageElement, offsetRow?: number, offsetCol?: number, width?: number, height?: number);
+  show(canvas: HTMLCanvasElement, offsetRow?: number, offsetCol?: number, width?: number, height?: number, toRow?: number, toCol?: number);
+  show(to: any, offsetRow?: number, offsetCol?: number, width?: number, height?: number, toRow?: number, toCol?: number): void {
+    offsetRow = offsetRow || 0;
+    offsetCol = offsetCol || 0;
+    width = width || (this.width - offsetCol);
+    height = height || (this.height - offsetRow);
+    toRow = toRow || 0;
+    toCol = toCol || 0;
+
+    if (isObject(to)) {
+      if (to instanceof HTMLImageElement) {
+        Yaipt.__canvas.width = width || this.width;
+        Yaipt.__canvas.height = height || this.height;
+
+        Yaipt.__canvasContext.putImageData(
+          this.pixels.generatImageData(offsetRow, offsetCol, width, height), 0, 0, width, height
+        );
+
+        to.src = Yaipt.__canvas.toDataURL();
+      } else if (to instanceof HTMLCanvasElement) {
+        let context = to.getContext('2d');
+        context.clearRect(toCol, toRow, width, height);
+        context.putImageData(
+          this.pixels.generatImageData(offsetRow, offsetCol, width, height), 0, 0, toCol, toRow, width, height
+        );
+        debugger;
+      } else {
+        throw new Error('Yaipt.prototype.show 错误的参数类型');
+      }
+    } else {
+      throw new Error('Yaipt.prototype.show 错误的参数类型');
+    }
+  }
+
   static setImage(image: HTMLImageElement);
   static setImage(link: string);
   static setImage(src: any) {
@@ -150,3 +186,5 @@ export default class Yaipt {
     });
   }
 };
+
+(<any>window).Yaipt = Yaipt;

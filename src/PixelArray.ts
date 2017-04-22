@@ -29,7 +29,8 @@ class PixelArray {
   }
 
   getPixel(row: number, col: number): number[] {
-    let start = row * col * 4;
+    let start = (row * this.width + col) * 4;
+
     if (start < 0 || start >= this.pixelArray.length) {
       throw new RangeError('PixelArray getPixel - 参数超过范围');
     }
@@ -42,7 +43,7 @@ class PixelArray {
   }
 
   setPixel(row: number, col: number, pixel: number[]): void {
-    let start = row * col * 4;
+    let start = (row * this.width + col) * 4;
 
     if (start < 0 || start >= this.pixelArray.length) {
       throw new RangeError('PixelArray getPixel - 参数超过范围');
@@ -61,8 +62,35 @@ class PixelArray {
   /**
    * 生成 ImageData
    */
-  generatImageData() {
-    return new ImageData(this.pixelArray, this.width, this.height);
+  generatImageData(offsetRow?: number, offsetCol?: number, width?: number, height?: number) {
+    offsetRow = offsetRow || 0;
+    offsetCol = offsetCol || 0;
+    height = height || (this.height - offsetRow);
+    width = width || (this.width - offsetCol);
+
+    if (offsetRow < 0 || offsetRow >= this.height || offsetCol < 0 || offsetCol >= this.width) {
+      throw new Error('Yaipt generateImageData - 所选区间超出数据范围');
+    }
+
+    if (offsetRow + height > this.height || offsetCol + width > this.width) {
+      throw new Error('Yaipt generateImageData - 所选区间超出数据范围');
+    }
+
+    let pixelsSelected = new Uint8ClampedArray(width * height * 4);
+    let currentPixel : number[];
+
+    for (let row = 0; row < height; row++) {
+      for (let col = 0; col < width; col++) {
+        currentPixel = this.getPixel(row + offsetRow, col + offsetCol);
+        pixelsSelected[(row * width + col) * 4] = currentPixel[0];
+        pixelsSelected[(row * width + col) * 4 + 1] = currentPixel[1];
+        pixelsSelected[(row * width + col) * 4 + 2] = currentPixel[2];
+        pixelsSelected[(row * width + col) * 4 + 3] = currentPixel[3];
+        // pixelsSelected.set(this.getPixel(row, col), row * col * 4);
+      }
+    }
+
+    return new ImageData(pixelsSelected, width, height);
   }
 }
 
