@@ -7,18 +7,26 @@
   <title>测试页面</title>
 </head>
 <body>
-  <canvas id="canvas"></canvas>
+  <!--<canvas id="canvas"></canvas>-->
   <br>
-  <img id="img">
+  <img>
+  <img>
+  <img>
+  <img>
+  <img>
+  <img>
+  <img>
+  <img>
+  <img>
+  <img>
   <script src="yaipt.js"></script>
   <script>
     var canvas = document.getElementById('canvas');
-    var image = document.getElementById('img');
+    var images = document.images;
     Yaipt.setImage('assets/43.png')
       .then(function (sample) {
-        canvas.width = sample.width;
-        canvas.height = sample.height;
-        sample.beGray().show(canvas);
+        sample.beSepia(false).show(images[0]);
+        sample.beInvert(false).show(images[1]);
       })
       .catch(function (error) {
         console.error('发生了错误', error);

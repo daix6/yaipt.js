@@ -139,6 +139,41 @@ export default class Yaipt {
   }
 
   /**
+   * 获取复古图像（Sepia）
+   *
+   * @param {boolean} onSelf 是否对当前实例操作，false 则返回一个新的实例
+   * @param {boolean} type 灰度类型，默认为 CIE 1931 linear luminance
+   */
+  beSepia(onSelf: boolean = true): Yaipt {
+    if (this.colorSpace != 'RGB') {
+      throw Error('Yaipt.prototype.beGray - 不支持的色彩空间');
+    }
+
+    return this.iterate('RGB', (pixel, row, col) => {
+      let R = .393 * pixel[0] + .769 * pixel[1] + .189 * pixel[2],
+          G = .349 * pixel[0] + .686 * pixel[1] + .168 * pixel[2],
+          B = .272 * pixel[0] + .534 * pixel[1] + .131 * pixel[2];
+      return [R, G, B, pixel[3]];
+    }, !!onSelf);
+  }
+
+  /**
+   * 获取负片
+   *
+   * @param {boolean} onSelf 是否对当前实例操作，false 则返回一个新的实例
+   * @param {boolean} type 灰度类型，默认为 CIE 1931 linear luminance
+   */
+  beInvert(onSelf: boolean = true): Yaipt {
+    if (this.colorSpace != 'RGB') {
+      throw Error('Yaipt.prototype.beGray - 不支持的色彩空间');
+    }
+
+    return this.iterate('RGB', (pixel, row, col) => {
+      return [255 - pixel[0], 255 - pixel[1], 255 - pixel[2], pixel[3]];
+    }, !!onSelf);
+  }
+
+  /**
    * Yaipt 实例方法，显示图片至 img 或 canvas 元素上
    *
    * @param {HTMLImageElement} image 显示 Yaipt 实例的 img 元素
