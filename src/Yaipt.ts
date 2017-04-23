@@ -1,5 +1,5 @@
 import { Promise } from 'es6-promise';
-import { isObject } from './Utils'
+import { isObject, isUndefined } from './Utils'
 import PixelArray from './PixelArray';
 
 export default class Yaipt {
@@ -11,6 +11,15 @@ export default class Yaipt {
 
   public static __canvas = document.createElement('canvas');
   public static __canvasContext = Yaipt.__canvas.getContext('2d');
+
+  // Gray Type
+  public static GRAYSCALE = {
+    LUMINANCE: 0, // CIE 1931 Linear Luminance
+    AVERAGE: 1,   // (R + G + B) / 3
+    LUMA: 2,      // rec601 luma(Y')
+    RANDOM: 3,    // Random Grayscale
+    CUSTOM: 4
+  };
 
   /**
    * Yaipt 的构造函数
@@ -28,7 +37,7 @@ export default class Yaipt {
    * 遍历，逐一对单个像素进行处理，只允许对单个像素操作，否则可能无法达到预期效果。
    *
    * @param {String} colorSpace 处理所需的色彩空间
-   * @param {(number[], number, number) => number[]} processor 处理函数
+   * @param {(number[], number, number) => number[]} processor 对单个像素的处理函数
    */
   iterate(colorSpace: string, processor: (pixel: number[], row: number, col: number) => number[], onSelf: boolean = true): Yaipt {
     if (this.colorSpace.toUpperCase() != colorSpace.toUpperCase()) {
@@ -40,7 +49,7 @@ export default class Yaipt {
 
     for (let row = 0; row < this.height; row++) {
       for (let col = 0; col < this.width; col++) {
-        this.pixels.setPixel(row, col, processor(this.pixels.getPixel(row, col), row, col));
+        copy.setPixel(row, col, processor(this.pixels.getPixel(row, col), row, col));
       }
     }
 
@@ -95,15 +104,36 @@ export default class Yaipt {
   /**
    * 在 RGB 色彩空间下获取灰度图像
    *
+   * @param {boolean} type 灰度类型，默认为 CIE 1931 linear luminance
    * @param {boolean} onSelf 是否对当前实例操作，false 则返回一个新的实例
+   * @param {number}  R R 通道权重
+   * @param {number}  G G 通道权重
+   * @param {number}  B B 通道权重
    */
-  beGray(onSelf: boolean = true): Yaipt {
+  beGray(type: number = Yaipt.GRAYSCALE.LUMINANCE, onSelf: boolean = true, R?: number, G?: number, B?: number): Yaipt {
     if (this.colorSpace != 'RGB') {
       throw Error('Yaipt.prototype.beGray - 不支持的色彩空间');
     }
 
+    switch (type) {
+      case Yaipt.GRAYSCALE.LUMA:
+        R = .299, G = .587, B = .114;
+        break;
+      case Yaipt.GRAYSCALE.AVERAGE:
+        R = G = B = 1/3;
+        break;
+      case Yaipt.GRAYSCALE.RANDOM:
+        R = Math.random(), G = Math.random() * (1 - R), B = 1 - R - G;
+        break;
+      case Yaipt.GRAYSCALE.CUSTOM:
+        if (isUndefined(R) || isUndefined(G) || isUndefined(B)) throw new Error('Yaipt.prototype.beGray CUSTOM 模式下缺少 R / G / B 参数');
+        break;
+      default:
+        R = .2126, G = .7152, B = .0722;
+    }
+
     return this.iterate('RGB', (pixel, row, col) => {
-      let intensity = pixel[0] * .2126 + pixel[1] * .7152 + pixel[2] * .0722;
+      let intensity = R * pixel[0] + G * pixel[1] + B * pixel[2];
       return [intensity, intensity, intensity, pixel[3]];
     }, !!onSelf);
   }
@@ -161,7 +191,15 @@ export default class Yaipt {
     }
   }
 
+  /**
+   * 新建 Yaipt 实例的图片源
+   * @param {HTMLImageElement} image 页面中 img 元素
+   */
   static setImage(image: HTMLImageElement);
+  /**
+   * 新建 Yaipt 实例的图片源
+   * @param {string} link URL，图片链接，对于跨域图片需要对方支持 CORS
+   */
   static setImage(link: string);
   static setImage(src: any) {
     return new Promise<Yaipt>(function (resolve, reject) {
@@ -184,6 +222,11 @@ export default class Yaipt {
             console.error('Yaipt.setImage：错误的图片地址', e);
           }
         }, false);
+
+        image.addEventListener('error', (e) => {
+          reject(e);
+            console.error('Yaipt.setImage：图片下载出现错误', e);
+        })
 
         image.src = src;
       } else if (typeof src === 'object' && src instanceof HTMLImageElement) {
