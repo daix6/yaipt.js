@@ -1,5 +1,5 @@
 import { Promise } from 'es6-promise';
-import { isObject, isUndefined } from './Utils'
+import { isObject, isUndefined, isNumber } from './Utils'
 import PixelArray from './PixelArray';
 
 export default class Yaipt {
@@ -41,15 +41,18 @@ export default class Yaipt {
    */
   iterate(colorSpace: string, processor: (pixel: number[], row: number, col: number) => number[], onSelf: boolean = true): Yaipt {
     if (this.colorSpace.toUpperCase() != colorSpace.toUpperCase()) {
-      throw Error('当前色彩空间与处理所需色彩空间不同');
+      throw new Error('当前色彩空间与处理所需色彩空间不同');
     }
 
-    let copy = this.pixels;
+    let copy = this.pixels, replacePixel;
     if (!onSelf) copy = new PixelArray(this.width, this.height);
 
     for (let row = 0; row < this.height; row++) {
       for (let col = 0; col < this.width; col++) {
-        copy.setPixel(row, col, processor(this.pixels.getPixel(row, col), row, col));
+        replacePixel = processor(this.pixels.getPixel(row, col), row, col);
+        if (replacePixel < 0) replacePixel = 0;
+        else if (replacePixel > 255) replacePixel = 255;
+        copy.setPixel(row, col, replacePixel);
       }
     }
 
@@ -63,7 +66,7 @@ export default class Yaipt {
    */
   beRed(onSelf: boolean = true): Yaipt {
     if (this.colorSpace != 'RGB') {
-      throw Error('Yaipt.prototype.beRed - 不支持的色彩空间');
+      throw new Error('Yaipt.prototype.beRed - 不支持的色彩空间');
     }
 
     return this.iterate('RGB', (pixel, row, col) => {
@@ -78,7 +81,7 @@ export default class Yaipt {
    */
   beGreen(onSelf: boolean = true): Yaipt {
     if (this.colorSpace != 'RGB') {
-      throw Error('Yaipt.prototype.beGreen - 不支持的色彩空间');
+      throw new Error('Yaipt.prototype.beGreen - 不支持的色彩空间');
     }
 
     return this.iterate('RGB', (pixel, row, col) => {
@@ -93,7 +96,7 @@ export default class Yaipt {
    */
   beBlue(onSelf: boolean = true): Yaipt {
     if (this.colorSpace != 'RGB') {
-      throw Error('Yaipt.prototype.beBlue - 不支持的色彩空间');
+      throw new Error('Yaipt.prototype.beBlue - 不支持的色彩空间');
     }
 
     return this.iterate('RGB', (pixel, row, col) => {
@@ -105,14 +108,14 @@ export default class Yaipt {
    * 在 RGB 色彩空间下获取灰度图像
    *
    * @param {boolean} type 灰度类型，默认为 CIE 1931 linear luminance
-   * @param {boolean} onSelf 是否对当前实例操作，false 则返回一个新的实例
    * @param {number}  R R 通道权重
    * @param {number}  G G 通道权重
    * @param {number}  B B 通道权重
+   * @param {boolean} onSelf 是否对当前实例操作，false 则返回一个新的实例
    */
-  beGray(type: number = Yaipt.GRAYSCALE.LUMINANCE, onSelf: boolean = true, R?: number, G?: number, B?: number): Yaipt {
+  beGray(type: number = Yaipt.GRAYSCALE.LUMINANCE, R?: number, G?: number, B?: number, onSelf: boolean = true): Yaipt {
     if (this.colorSpace != 'RGB') {
-      throw Error('Yaipt.prototype.beGray - 不支持的色彩空间');
+      throw new Error('Yaipt.prototype.beGray - 不支持的色彩空间');
     }
 
     switch (type) {
@@ -146,7 +149,7 @@ export default class Yaipt {
    */
   beSepia(onSelf: boolean = true): Yaipt {
     if (this.colorSpace != 'RGB') {
-      throw Error('Yaipt.prototype.beGray - 不支持的色彩空间');
+      throw new Error('Yaipt.prototype.beGray - 不支持的色彩空间');
     }
 
     return this.iterate('RGB', (pixel, row, col) => {
@@ -165,11 +168,125 @@ export default class Yaipt {
    */
   beInvert(onSelf: boolean = true): Yaipt {
     if (this.colorSpace != 'RGB') {
-      throw Error('Yaipt.prototype.beGray - 不支持的色彩空间');
+      throw new Error('Yaipt.prototype.beGray - 不支持的色彩空间');
     }
 
     return this.iterate('RGB', (pixel, row, col) => {
       return [255 - pixel[0], 255 - pixel[1], 255 - pixel[2], pixel[3]];
+    }, !!onSelf);
+  }
+
+  /**
+   * 对图片对比度与亮度进行处理
+   *
+   * @param {boolean} linear 对比度是否为线性调整
+   * @param {number}  contrast 对比度增强程度（线性模型下取值范围为：[0, +∞)；非线性模型：[-255, 255])
+   * @param {number}  brightness 亮度增强值（[-255, 255]）
+   * @param {boolean} onSelf 是否对当前实例操作，false 则返回一个新的实例
+   */
+  adjustBrightnessAndContrast(linear: boolean = false, contrast: number, brightness: number = 0, onSelf: boolean = true): Yaipt {
+    if (this.colorSpace != 'RGB') {
+      throw new Error('Yaipt.prototype.beGray - 不支持的色彩空间');
+    }
+
+    let processor;
+
+    if (linear) {
+      contrast = isNumber(contrast) ? contrast : 1;
+      processor = function(pixel) {
+        let R = pixel[0] * contrast + brightness,
+            G = pixel[1] * contrast + brightness,
+            B = pixel[2] * contrast + brightness;
+
+        return [R, G, B, pixel[3]];
+      }
+    } else {
+      contrast = isNumber(contrast) ? contrast : 0;
+      processor = function(pixel) {
+        let threshold = .2126 * pixel[0] + .7152 * pixel[1] + .0722 * pixel[2];
+        let R = pixel[0], G = pixel[1], B = pixel[2]  ;
+
+        if (contrast >= 0) {
+          R += brightness, G += brightness, B += brightness;
+          if (contrast >= 255) {
+            R = R >= threshold ? 255 : 0;
+            G = G >= threshold ? 255 : 0;
+            G = G >= threshold ? 255 : 0;
+          } else {
+            R = R + (R - threshold) * (1 / (1 - contrast / 255) - 1);
+            G = G + (G - threshold) * (1 / (1 - contrast / 255) - 1);
+            B = B + (B - threshold) * (1 / (1 - contrast / 255) - 1);
+          }
+        } else {
+          if (contrast <= -255) R = G = B = threshold;
+          else {
+            R = R + (R - threshold) * contrast / 255;
+            G = G + (G - threshold) * contrast / 255;
+            B = B + (B - threshold) * contrast / 255;
+          }
+          R += brightness, G += brightness, B += brightness;
+        }
+        return [R, G, B, pixel[3]];
+      }
+    }
+
+    return this.iterate('RGB', processor, !!onSelf);
+  }
+
+  /**
+   * 图像对比度操作
+   *
+   * @param {boolean} linear 对比度是否为线性调整
+   * @param {number}  contrast 对比度增强程度（线性模型下取值范围为：[0, +∞)；非线性模型：[-255, 255])
+   * @param {boolean} onSelf 是否对当前实例操作，false 则返回一个新的实例
+   */
+  contrast(linear: boolean = false, contrast: number, onSelf: boolean = true): Yaipt {
+    if (this.colorSpace != 'RGB') {
+      throw new Error('Yaipt.prototype.beGray - 不支持的色彩空间');
+    }
+
+    return this.iterate('RGB', pixel => {
+      if (linear) {
+        return [pixel[0] * contrast, pixel[1] * contrast, pixel[2] * contrast, pixel[3]];
+      } else {
+        let threshold = .2126 * pixel[0] + .7152 * pixel[1] + .0722 * pixel[2];
+        let R = pixel[0], G = pixel[1], B = pixel[2];
+        if (contrast >= 0) {
+          if (contrast >= 255) {
+            R = R >= threshold ? 255 : 0;
+            G = G >= threshold ? 255 : 0;
+            G = G >= threshold ? 255 : 0;
+          } else {
+            R = R + (R - threshold) * (1 / (1 - contrast / 255) - 1);
+            G = G + (G - threshold) * (1 / (1 - contrast / 255) - 1);
+            B = B + (B - threshold) * (1 / (1 - contrast / 255) - 1);
+          }
+        } else {
+          if (contrast <= -255) R = G = B = threshold;
+          else {
+            R = R + (R - threshold) * contrast / 255;
+            G = G + (G - threshold) * contrast / 255;
+            B = B + (B - threshold) * contrast / 255;
+          }
+        }
+        return [R, G, B, pixel[3]];
+      }
+    }, !!onSelf);
+  }
+
+  /**
+   * 图像亮度操作
+   *
+   * @param {number}  brightness 亮度增强值（[-255, 255]）
+   * @param {boolean} onSelf 是否对当前实例操作，false 则返回一个新的实例
+   */
+  brightness(amount: number = 0, onSelf: boolean = true): Yaipt {
+    if (this.colorSpace != 'RGB') {
+      throw new Error('Yaipt.prototype.beGray - 不支持的色彩空间');
+    }
+
+    return this.iterate('RGB', pixel => {
+      return [pixel[0] + amount, pixel[1] + amount, pixel[2] + amount, pixel[3]];
     }, !!onSelf);
   }
 
