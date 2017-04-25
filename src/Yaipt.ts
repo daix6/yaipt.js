@@ -2,6 +2,33 @@ import { Promise } from 'es6-promise';
 import { isObject, isUndefined, isNumber } from './Utils'
 import PixelArray from './PixelArray';
 
+interface IYaiptFilter {
+  filterMatrix: number[][];
+  fill?: number | number[];
+}
+
+function convolution(origin: number[][][], filter: number[][]) {
+  let lenA = origin.length, lenB = origin[0].length;
+  let result = [0, 0, 0, origin[0][0][3]];
+  let filterSum = filter.reduce((prev, cur) => prev.concat(cur), []).reduce((prev, cur) => prev + cur, 0);
+
+  for (let i = 0; i < lenA; i++) {
+    for (let j = 0; j < lenB; j++) {
+      result[0] += origin[i][j][0] * filter[lenA - i - 1][lenB - j - 1];
+      result[1] += origin[i][j][1] * filter[lenA - i - 1][lenB - j - 1];
+      result[2] += origin[i][j][2] * filter[lenA - i - 1][lenB - j - 1];
+    }
+  }
+
+  if (filterSum > 0) {
+    result[0] = result[0] / filterSum | 0;
+    result[1] = result[1] / filterSum | 0;
+    result[2] = result[2] / filterSum | 0;
+  }
+
+  return result;
+}
+
 export default class Yaipt {
   public width: number;
   public height: number;
@@ -20,6 +47,13 @@ export default class Yaipt {
     RANDOM: 3,    // Random Grayscale
     CUSTOM: 4
   };
+
+  public static FILTER = {
+    BLUR: {
+
+    },
+    BLUR_GAUSSIAN: {}
+  }
 
   /**
    * Yaipt 的构造函数
@@ -288,6 +322,48 @@ export default class Yaipt {
     return this.iterate('RGB', pixel => {
       return [pixel[0] + amount, pixel[1] + amount, pixel[2] + amount, pixel[3]];
     }, !!onSelf);
+  }
+
+  /**
+   * 滤波器
+   *
+   * @param {object} options 滤波器参数
+   * @param {boolean} onSelf 是否对当前实例操作，false 则返回一个新的实例
+   */
+  filter(options: IYaiptFilter, onSelf: boolean = true) {
+    options = options || <IYaiptFilter>{};
+    if (!options.filterMatrix) throw new Error('Yaipt filter - 必须提供滤波器');
+    let fillPixel: number[];
+    if (isNumber(options.fill)) fillPixel = <number[]>[options.fill, options.fill, options.fill, options.fill];
+    else if (Array.isArray(options.fill)) fillPixel = options.fill;
+
+    let rowSize = options.filterMatrix.length, colSize = options.filterMatrix[0].length;
+    let offsetRow = rowSize / 2 | 0, offsetCol = colSize / 2 | 0;
+    let currentPixel: number[], currentPixelMatrix : number[][][];
+    let copy = this.pixels;
+    if (onSelf) copy = new PixelArray(this.width, this.height);
+
+    for (let row = 0; row < this.height; row++) {
+      for (let col = 0; col < this.width; col++) {
+        currentPixel = this.pixels.getPixel(row, col);
+        currentPixelMatrix = [];
+        if (fillPixel) fillPixel[3] = currentPixel[3];
+        for (let y = row - offsetRow; y < row + rowSize - offsetRow; y++) {
+          currentPixelMatrix[y - row + offsetRow] = [];
+          for (let x = col - offsetCol; x < col + colSize - offsetCol; x++) {
+            if (y < 0 || y >= this.height || x < 0 || x >= this.width) {
+              currentPixelMatrix[y - row + offsetRow][x - col + offsetCol] = fillPixel || currentPixel;
+            } else {
+              currentPixelMatrix[y - row + offsetRow][x - col + offsetCol] = currentPixel;
+            }
+          }
+        }
+        copy.setPixel(row, col, convolution(currentPixelMatrix, options.filterMatrix));
+      }
+    }
+
+    if (onSelf) return this;
+    return new Yaipt(copy.generatImageData());
   }
 
   /**
