@@ -25,10 +25,18 @@
     var images = document.images;
     Yaipt.setImage('assets/43.png')
       .then(function (sample) {
+        var average = sample.blur(Yaipt.BLUR.AVERAGE, false);
+        var median = sample.blur(Yaipt.BLUR.MEDIAN, false);
+        var gaussian = sample.blur(Yaipt.BLUR.GAUSSIAN, false);
         sample.show(images[0]);
-        sample.adjustBrightnessAndContrast(false, 100, 10, false).show(images[1]);
-        sample.adjustBrightnessAndContrast(false, -100, 10, false).show(images[2]);
-        sample.adjustBrightnessAndContrast(true, 0.8, 10, false).show(images[3]);
+        average.show(images[1]);
+        median.show(images[2]);
+        gaussian.show(images[3]);
+        Yaipt.diff(sample, average).show(images[4]);
+        Yaipt.diff(median, average).show(images[5]);
+        Yaipt.diff(median, gaussian).show(images[6]);
+        // sample.blur(Yaipt.BLUR.MEDIAN, false).show(images[2]);
+        // sample.blur(Yaipt.BLUR.GAUSSIAN, false).show(images[3]);
       })
       .catch(function (error) {
         console.error('发生了错误', error);

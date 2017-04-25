@@ -1,13 +1,19 @@
 import { Promise } from 'es6-promise';
-import { isObject, isUndefined, isNumber } from './Utils'
+import { isObject, isUndefined, isNumber, getMedian } from './Utils'
 import PixelArray from './PixelArray';
 
 interface IYaiptFilter {
-  filterMatrix: number[][];
-  fill?: number | number[];
+  filterMatrix?: number[][];
+  handler?: TFilterHandler;
+  fill?: number | TPixel;
+  rowSize?: number;
+  colSize?: number;
 }
 
-function convolution(origin: number[][][], filter: number[][]) {
+type TPixel = number[];
+type TFilterHandler = (kernel: TPixel[][], ...args) => TPixel;
+
+function convolution(origin: TPixel[][], filter: number[][]): TPixel {
   let lenA = origin.length, lenB = origin[0].length;
   let result = [0, 0, 0, origin[0][0][3]];
   let filterSum = filter.reduce((prev, cur) => prev.concat(cur), []).reduce((prev, cur) => prev + cur, 0);
@@ -29,6 +35,23 @@ function convolution(origin: number[][][], filter: number[][]) {
   return result;
 }
 
+function generate2dGaussianMatrix(size: number, sigma: number = 1): number[][] {
+  if (sigma === 0) {
+    sigma = 1;
+    console.warn('用于高斯模糊的标准差不能为零, 已调整为 1');
+  };
+  let offsetSize = size / 2 | 0;
+  let gaussian: number[][] = [];
+  for (let y = -offsetSize; y < size - offsetSize; y++) {
+    gaussian[y + offsetSize] = [];
+    for (let x = -offsetSize; x < size - offsetSize; x++) {
+      gaussian[y + offsetSize][x + offsetSize] = 1 / (Math.PI * 2 * sigma * sigma) * Math.exp(-(x * x + y * y)/(2 * sigma * sigma));
+    }
+  }
+
+  return gaussian;
+}
+
 export default class Yaipt {
   public width: number;
   public height: number;
@@ -48,11 +71,32 @@ export default class Yaipt {
     CUSTOM: 4
   };
 
-  public static FILTER = {
-    BLUR: {
+  public static BLUR = {
+    AVERAGE: 0,
+    MEDIAN: 1,
+    GAUSSIAN: 2
+  };
 
-    },
-    BLUR_GAUSSIAN: {}
+  public static diff(a: Yaipt, b: Yaipt): Yaipt {
+    let biggerWidth = Math.max(a.width, b.width);
+    let biggerHeight = Math.max(a.height, b.height);
+
+    let pixels = new PixelArray(biggerWidth, biggerHeight);
+    let pa: TPixel, pb: TPixel, diffPixel: TPixel;
+    for (let row = 0; row < biggerHeight; row++) {
+      for (let col = 0; col < biggerWidth; col++) {
+        try { pa = a.pixels.getPixel(row, col) }
+        catch (e) { pa = [0, 0, 0, 0]; }
+        try { pb = b.pixels.getPixel(row, col) }
+        catch (e) { pb = [0, 0, 0, 0]; }
+
+        diffPixel = pa.map((item, index) => Math.abs(item - pb[index]));
+        diffPixel[3] = 255;
+        pixels.setPixel(row, col, diffPixel);
+      }
+    }
+
+    return new Yaipt(pixels.generatImageData());
   }
 
   /**
@@ -73,7 +117,7 @@ export default class Yaipt {
    * @param {String} colorSpace 处理所需的色彩空间
    * @param {(number[], number, number) => number[]} processor 对单个像素的处理函数
    */
-  iterate(colorSpace: string, processor: (pixel: number[], row: number, col: number) => number[], onSelf: boolean = true): Yaipt {
+  iterate(colorSpace: string, processor: (pixel: TPixel, row: number, col: number) => TPixel, onSelf: boolean = true): Yaipt {
     if (this.colorSpace.toUpperCase() != colorSpace.toUpperCase()) {
       throw new Error('当前色彩空间与处理所需色彩空间不同');
     }
@@ -331,17 +375,27 @@ export default class Yaipt {
    * @param {boolean} onSelf 是否对当前实例操作，false 则返回一个新的实例
    */
   filter(options: IYaiptFilter, onSelf: boolean = true) {
-    options = options || <IYaiptFilter>{};
-    if (!options.filterMatrix) throw new Error('Yaipt filter - 必须提供滤波器');
-    let fillPixel: number[];
+    options = options || {};
+    if (!options.filterMatrix && !options.handler) throw new Error('Yaipt filter - 必须提供滤波器或者处理函数');
+    let handler = options.handler || convolution;
+
+    let fillPixel: TPixel;
     if (isNumber(options.fill)) fillPixel = <number[]>[options.fill, options.fill, options.fill, options.fill];
     else if (Array.isArray(options.fill)) fillPixel = options.fill;
 
-    let rowSize = options.filterMatrix.length, colSize = options.filterMatrix[0].length;
+    let rowSize, colSize;
+    if (options.filterMatrix) {
+      rowSize = options.filterMatrix.length;
+      colSize = options.filterMatrix[0].length;
+    } else {
+      rowSize = options.rowSize || 3;
+      colSize = options.rowSize || 3;
+    }
     let offsetRow = rowSize / 2 | 0, offsetCol = colSize / 2 | 0;
-    let currentPixel: number[], currentPixelMatrix : number[][][];
+
+    let currentPixel: TPixel, currentPixelMatrix : TPixel[][];
     let copy = this.pixels;
-    if (onSelf) copy = new PixelArray(this.width, this.height);
+    if (!onSelf) copy = new PixelArray(this.width, this.height);
 
     for (let row = 0; row < this.height; row++) {
       for (let col = 0; col < this.width; col++) {
@@ -354,16 +408,42 @@ export default class Yaipt {
             if (y < 0 || y >= this.height || x < 0 || x >= this.width) {
               currentPixelMatrix[y - row + offsetRow][x - col + offsetCol] = fillPixel || currentPixel;
             } else {
-              currentPixelMatrix[y - row + offsetRow][x - col + offsetCol] = currentPixel;
+              currentPixelMatrix[y - row + offsetRow][x - col + offsetCol] = this.pixels.getPixel(y, x);
             }
           }
         }
-        copy.setPixel(row, col, convolution(currentPixelMatrix, options.filterMatrix));
+        copy.setPixel(row, col, handler(currentPixelMatrix, options.filterMatrix));
       }
     }
 
     if (onSelf) return this;
     return new Yaipt(copy.generatImageData());
+  }
+
+  blur(type: number = Yaipt.BLUR.AVERAGE, onSelf: boolean = true): Yaipt {
+    let options: IYaiptFilter = {};
+
+    switch(type) {
+      case Yaipt.BLUR.GAUSSIAN:
+        options.filterMatrix = generate2dGaussianMatrix(3);
+        break;
+      case Yaipt.BLUR.MEDIAN:
+        options.handler = function (origin) {
+          let flat = origin.reduce((prev, cur) => prev.concat(cur), []);
+
+          return [
+            getMedian(flat.map(item => item[0])),
+            getMedian(flat.map(item => item[1])),
+            getMedian(flat.map(item => item[2])),
+            getMedian(flat.map(item => item[3])),
+          ];
+        }
+        break;
+      default:
+        options.filterMatrix = [[1, 1, 1], [1, 1, 1], [1, 1, 1]];
+    }
+
+    return this.filter(options, onSelf);
   }
 
   /**
